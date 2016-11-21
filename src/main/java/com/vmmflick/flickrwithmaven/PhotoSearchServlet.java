@@ -6,13 +6,21 @@
 package com.vmmflick.flickrwithmaven;
 
 import com.flickr4java.flickr.Flickr;
+import com.flickr4java.flickr.FlickrException;
 import com.flickr4java.flickr.REST;
+import com.flickr4java.flickr.photos.GeoData;
 import com.flickr4java.flickr.photos.Photo;
 import com.flickr4java.flickr.photos.PhotoList;
 import com.flickr4java.flickr.photos.PhotosInterface;
 import com.flickr4java.flickr.photos.SearchParameters;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -39,7 +47,7 @@ public class PhotoSearchServlet extends HttpServlet {
         out.println("<a href=\".\">Return to search form</a>");
     }
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+            throws ServletException, IOException, FlickrException {
         response.setContentType("text/html;charset=UTF-8");
         try (PrintWriter out = response.getWriter()) {
             /* TODO output your page here. You may use following sample code. */
@@ -52,17 +60,87 @@ public class PhotoSearchServlet extends HttpServlet {
         out.println("<body>");
     
        
-        String name = request.getParameter("name");
+        String name = request.getParameter("query");
+        String geoChecked=request.getParameter("gpscheck");
+        System.out.println("The geo is " + geoChecked);
+        double geoLatitude=0, geoLongitude=0;
+        if(geoChecked!=null){
+         geoLatitude=Double.parseDouble(request.getParameter("latitude"));
+         geoLongitude=Double.parseDouble(request.getParameter("longitude"));
+        }
             printHeader(out,name);
-            
+
         String apiKey = "859ff620dda11a192d7ff17513b4dfac";
         String sharedSecret = "a90d392d889f0b69";
         Flickr flickr = new Flickr(apiKey, sharedSecret, new REST());
         PhotosInterface photosInteface = flickr.getPhotosInterface();
         SearchParameters params = new SearchParameters();
 
-//Photo interface search method ----think how to solve pages
+        //do simple page reranking
         if (name == null) {
+            name = "No name";
+        }
+        String[] tags;
+        tags = name.split(" ");
+        
+        for (int i = 0; i < tags.length; i++) {
+           tags[i]=tags[i].trim();
+        }
+        params.setText(name);
+       // params.setTags(tags);
+       // params.setTagMode("all");
+        params.setHasGeo(true);
+        List<RankedPhoto> rankedList=new ArrayList<RankedPhoto>();
+        
+        PhotoList<Photo> photos=null;
+        try {
+
+            photos = photosInteface.search(params, 500, 1);
+        } catch (Exception e) {
+            System.out.println(e);
+        }
+        if((photos!=null) && !photos.isEmpty()){
+           out.println("<div>");
+            int pages = photos.getPages();
+    
+                
+        
+            double rank=0;
+        for (Photo photo : photos) {
+            if(geoChecked!=null){
+                
+                GeoData geoData=null;
+               if (flickr.getGeoInterface().getLocation(photo.getId()) != null) {
+                 geoData = flickr.getGeoInterface().getLocation(photo.getId());} 
+           double gcd= GCDAlgorithm.countGCD(geoData, geoLatitude, geoLongitude);
+            rank+=gcd;
+            }
+           // String p_url= photo.getThumbnailUrl();
+            rankedList.add(new RankedPhoto(photo,rank));
+         
+          //  out.println("<img src=\""+p_url+"\" alt=\""+photo.getTitle()+"\"/>");
+           
+        }
+        Collections.sort(rankedList);
+        
+        for(RankedPhoto p: rankedList){
+            String p_url= p.p.getThumbnailUrl();
+            out.println("<img src=\""+p_url+"\" alt=\""+p.p.getTitle()+"\"/>");
+            
+        }
+        out.println("</div>");
+        }else{
+
+    out.println (
+
+    "No photos wiith tags " + name + " found!");
+        }
+        
+        
+        
+//Photo interface search method ----think how to solve pages
+    /*  
+    if (name == null) {
             name = "No name";
         }
         String[] tags;
@@ -103,7 +181,7 @@ public class PhotoSearchServlet extends HttpServlet {
     out.println (
 
     "No photos wiith tags " + name + " found!");
-        }
+        }*/
     out.println (
             
     "</body>");
@@ -126,7 +204,11 @@ public class PhotoSearchServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        processRequest(request, response);
+        try {
+            processRequest(request, response);
+        } catch (FlickrException ex) {
+            Logger.getLogger(PhotoSearchServlet.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
     /**
@@ -140,7 +222,11 @@ public class PhotoSearchServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        processRequest(request, response);
+        try {
+            processRequest(request, response);
+        } catch (FlickrException ex) {
+            Logger.getLogger(PhotoSearchServlet.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
     /**
