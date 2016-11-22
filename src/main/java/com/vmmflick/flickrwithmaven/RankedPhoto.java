@@ -6,13 +6,14 @@
 package com.vmmflick.flickrwithmaven;
 
 import com.flickr4java.flickr.photos.Photo;
+import java.util.Comparator;
 
 
 /**
  *
  * @author Veronika
  */
-public class RankedPhoto implements Comparable<RankedPhoto> {
+public class RankedPhoto {
 
     Photo p;
     double rank;
@@ -22,11 +23,26 @@ public class RankedPhoto implements Comparable<RankedPhoto> {
         rank = r;
     }
 
-   
+    /**
+     *
+     * @return
+     */
+    public static Comparator<RankedPhoto> getCompByRank()
+{   
+ Comparator comp = new Comparator<RankedPhoto>(){
+     @Override
+     public int compare(RankedPhoto s1, RankedPhoto s2)
+     {
+         return Double.compare(s1.rank,s2.rank);
+     }        
+ };
+ return comp;
+}  
+   /*
     @Override
     public int compareTo(RankedPhoto p2) {
         return Double.compare(rank, p2.rank);
 
     }
-
+*/
 }

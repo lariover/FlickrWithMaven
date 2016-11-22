@@ -68,7 +68,8 @@ public class PhotoSearchServlet extends HttpServlet {
          geoLatitude=Double.parseDouble(request.getParameter("latitude"));
          geoLongitude=Double.parseDouble(request.getParameter("longitude"));
         }
-            printHeader(out,name);
+         System.out.println("The input lat: "+ geoLatitude + " lon: " + geoLongitude);   
+        printHeader(out,name);
 
         String apiKey = "859ff620dda11a192d7ff17513b4dfac";
         String sharedSecret = "a90d392d889f0b69";
@@ -90,8 +91,8 @@ public class PhotoSearchServlet extends HttpServlet {
        // params.setTags(tags);
        // params.setTagMode("all");
         params.setHasGeo(true);
-        List<RankedPhoto> rankedList=new ArrayList<RankedPhoto>();
-        
+        List<RankedPhoto> rankedList=new ArrayList<>();
+       
         PhotoList<Photo> photos=null;
         try {
 
@@ -104,26 +105,33 @@ public class PhotoSearchServlet extends HttpServlet {
             int pages = photos.getPages();
     
                 
-        
-            double rank=0;
+        GCDAlgorithm distance=new GCDAlgorithm();
+            
+            out.println("<div class=\"norank\" style=\"width: 50%\">");
         for (Photo photo : photos) {
+              double rank=0;
             if(geoChecked!=null){
                 
                 GeoData geoData=null;
                if (flickr.getGeoInterface().getLocation(photo.getId()) != null) {
-                 geoData = flickr.getGeoInterface().getLocation(photo.getId());} 
-           double gcd= GCDAlgorithm.countGCD(geoData, geoLatitude, geoLongitude);
+                 geoData = flickr.getGeoInterface().getLocation(photo.getId());
+                 photo.setGeoData(geoData);
+               } 
+           double gcd= distance.countGCD(geoData, geoLatitude, geoLongitude);
             rank+=gcd;
             }
-           // String p_url= photo.getThumbnailUrl();
+           String p_url= photo.getThumbnailUrl();
             rankedList.add(new RankedPhoto(photo,rank));
          
-          //  out.println("<img src=\""+p_url+"\" alt=\""+photo.getTitle()+"\"/>");
+           out.println("<img src=\""+p_url+"\" alt=\""+photo.getTitle()+"\"/>");
            
         }
-        Collections.sort(rankedList);
-        
+        out.println("</div>");
+        Collections.sort(rankedList,RankedPhoto.getCompByRank());
+        out.println("<div class=\"rank\">");
         for(RankedPhoto p: rankedList){
+            System.out.println("The rank is: " + p.rank);
+            System.out.println("The lat: " + p.p.getGeoData().getLatitude() + " lon: " + p.p.getGeoData().getLongitude());
             String p_url= p.p.getThumbnailUrl();
             out.println("<img src=\""+p_url+"\" alt=\""+p.p.getTitle()+"\"/>");
             
