@@ -42,25 +42,45 @@ public class PhotoSearchServlet extends HttpServlet {
      * @throws IOException if an I/O error occurs
      */
     protected void printHeader(PrintWriter out, String tags){
+        out.println("<!DOCTYPE html>");
+        out.println("<html>");
+        out.println("<head>");
+        out.println("<title>Servlet FormHandler</title>");
+        out.println("<link rel=\"stylesheet\" href=\"index.css\">");
+        out.println("<script src=\"http://code.jquery.com/jquery-latest.min.js\"></script>"+
+        "<!-- jquery for hide / show button -->" +
+        "<script type=\"text/javascript\">"+
+        "window.onload=function(){document.getElementById('hideshow').value='Show ranked results';}"+
+        "</script>"+
+        "<script>" +
+        "jQuery(document).ready(function(){" +
+            "jQuery('#hideshow').on('click', function(event) {" +
+                "jQuery('#norank').toggle('show');" +
+                "jQuery('#rank').toggle('show');" +
+                "if(this.value == 'Show unranked results'){"+
+                	"this.value = 'Show ranked results';} else {"+
+                	"this.value = 'Show unranked results';};"+               
+                "}"+
+            ");"+
+        "});"+
+        "</script>");
+        out.println("</head>");
+        out.println("<body>");
         out.print("<h1>Search request for "+ tags);
         out.println("</h1>");
-        out.println("<a href=\".\">Return to search form</a>");
+        out.println("<a href=\"index.jsp\">Return to search form</a>");
+        out.println("<input type='button' id='hideshow' value='Still loading images...'>");
+        out.println("<hr>");
     }
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException, FlickrException {
         response.setContentType("text/html;charset=UTF-8");
         try (PrintWriter out = response.getWriter()) {
             /* TODO output your page here. You may use following sample code. */
-            
-        out.println("<!DOCTYPE html>");
-        out.println("<html>");
-        out.println("<head>");
-        out.println("<title>Servlet FormHandler</title>");
-        out.println("</head>");
-        out.println("<body>");
-    
+             
        
         String name = request.getParameter("query");
+        String searchtype = request.getParameter("searchtype");
         String geoChecked=request.getParameter("gpscheck");
         System.out.println("The geo is " + geoChecked);
         double geoLatitude=0, geoLongitude=0;
@@ -81,15 +101,21 @@ public class PhotoSearchServlet extends HttpServlet {
         if (name == null) {
             name = "No name";
         }
-        String[] tags;
-        tags = name.split(" ");
-        
-        for (int i = 0; i < tags.length; i++) {
-           tags[i]=tags[i].trim();
-        }
-        params.setText(name);
-       // params.setTags(tags);
-       // params.setTagMode("all");
+
+        if(searchtype == "fulltext")
+        {
+        	params.setText(name);
+        } else
+        {
+            String[] tags;
+            tags = name.split(" ");
+            
+            for (int i = 0; i < tags.length; i++) {
+               tags[i]=tags[i].trim();
+        	params.setTags(tags);
+        	params.setTagMode("all");
+            }
+        } 
         params.setHasGeo(true);
         List<RankedPhoto> rankedList=new ArrayList<>();
        
@@ -107,7 +133,7 @@ public class PhotoSearchServlet extends HttpServlet {
                 
         GCDAlgorithm distance=new GCDAlgorithm();
             
-            out.println("<div class=\"norank\" style=\"width: 50%\">");
+            out.println("<div id=\"norank\" >");
         for (Photo photo : photos) {
               double rank=0;
             if(geoChecked!=null){
@@ -128,7 +154,7 @@ public class PhotoSearchServlet extends HttpServlet {
         }
         out.println("</div>");
         Collections.sort(rankedList,RankedPhoto.getCompByRank());
-        out.println("<div class=\"rank\">");
+        out.println("<div id=\"rank\">");
         for(RankedPhoto p: rankedList){
             System.out.println("The rank is: " + p.rank);
             System.out.println("The lat: " + p.p.getGeoData().getLatitude() + " lon: " + p.p.getGeoData().getLongitude());
