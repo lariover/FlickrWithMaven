@@ -17,10 +17,12 @@ public class RankedPhoto {
 
     Photo p;
     double rank;
+    int orig_position;
 
-    RankedPhoto(Photo f, double r) {
+    RankedPhoto(Photo f, double r, int position) {
         p = f;
         rank = r;
+        orig_position = position;
     }
 
     /**

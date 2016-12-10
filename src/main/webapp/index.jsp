@@ -118,11 +118,11 @@ $( function() {
     <output name="Dateoutput" id="Dateoutputid">0.5</output> </td>
 			  </tr>
 			  <tr>
-			  	<td><input type="checkbox" name="likecheck"></td>
-			    <td># of likes:</td>
-			    <td colspan="2"><input type="text" name="likes" id="likesid"></td>
-			    <td> <input type="range" name="Likesprio" id="Likesprioid" value="50" min="0" max="100" oninput="Likesoutputid.value = Likesprioid.value/100">
-    <output name="Likesoutput" id="Likesoutputid">0.5</output> </td>
+			  	<td><input type="checkbox" name="viewscheck"></td>
+			    <td># of views:</td>
+			    <td colspan="2"><input type="text" name="views" id="viewsid"></td>
+			    <td> <input type="range" name="Viewsprio" id="Viewsprioid" value="50" min="0" max="100" oninput="Viewsoutputid.value = Viewsprioid.value/100">
+    <output name="Viewsoutput" id="Viewsoutputid">0.5</output> </td>
 			  </tr>
 			</table>
 		    <input type="submit" value="Submit" id="submitButton"/>

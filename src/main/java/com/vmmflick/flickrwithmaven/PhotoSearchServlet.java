@@ -41,55 +41,118 @@ public class PhotoSearchServlet extends HttpServlet {
      * @throws ServletException if a servlet-specific error occurs
      * @throws IOException if an I/O error occurs
      */
-    protected void printHeader(PrintWriter out, String tags){
+	
+	// checkbox variables
+    String searchtype;
+	String geoChecked;
+	
+	// value variables
+	String name;
+	String[] tags;
+    double geoLatitude, geoLongitude;
+    
+    // priority variables
+    double geoPrio;
+	
+    protected void printHeader(PrintWriter out){
         out.println("<!DOCTYPE html>");
         out.println("<html>");
         out.println("<head>");
         out.println("<title>Servlet FormHandler</title>");
         out.println("<link rel=\"stylesheet\" href=\"index.css\">");
-        out.println("<script src=\"http://code.jquery.com/jquery-latest.min.js\"></script>"+
-        "<!-- jquery for hide / show button -->" +
-        "<script type=\"text/javascript\">"+
-        "window.onload=function(){document.getElementById('hideshow').value='Show ranked results';}"+
-        "</script>"+
-        "<script>" +
-        "jQuery(document).ready(function(){" +
-            "jQuery('#hideshow').on('click', function(event) {" +
-                "jQuery('#norank').toggle('show');" +
-                "jQuery('#rank').toggle('show');" +
-                "if(this.value == 'Show unranked results'){"+
-                	"this.value = 'Show ranked results';} else {"+
-                	"this.value = 'Show unranked results';};"+               
-                "}"+
-            ");"+
-        "});"+
-        "</script>");
+        out.println("<script src=\"http://code.jquery.com/jquery-latest.min.js\"></script>");
+        out.println("<script type=\"text/javascript\"  src=\"switch_results.js\"></script>");        
+        out.println("<script type=\"text/javascript\"  src=\"paste_descr.js\"></script>");
         out.println("</head>");
         out.println("<body>");
-        out.print("<h1>Search request for "+ tags);
-        out.println("</h1>");
+        out.println("<div id=\"header\">");
+        out.println("<div id=\"menu\">");
+        printQuery(out);
         out.println("<a href=\"index.jsp\">Return to search form</a>");
         out.println("<input type='button' id='hideshow' value='Still loading images...'>");
-        out.println("<hr>");
+        out.println("</div>");
+        
+        out.println("<div id=\"description-shown\">");
+        out.println("</div>");
+      
+        out.println("<hr id=\"line\">");
+        out.println("</div>");
     }
+    
+    protected void printQuery(PrintWriter out) {
+    	// print only no query when empty
+    	if(name.replaceAll("\\s+","").isEmpty())
+    	{
+    		out.println("<p>No query!</p>");
+    		return;
+    	}
+    	// print search query
+        if(searchtype.equals("tag"))
+        {
+        	out.println("<p>Tag search: ");
+            for (int i = 0; i < tags.length; i++) {
+            	out.print(tags[i]);
+            	if(i != tags.length-1)
+            		out.println(", ");
+            }
+        } else
+        {
+        	out.println("<p>Fulltext search: ");
+        	out.println(name);
+        }
+        // print geo data if needed
+        if(geoChecked!=null)
+        {
+        	out.println("<br>");
+        	out.println("Latitude: " + geoLatitude + ", ");
+         	out.println("longitude: "+ geoLongitude + "<br>");
+         	out.println("Geo priority: " + geoPrio);
+        }
+        out.println("</p>");
+    }
+    
+    protected void printResult(PrintWriter out, Photo photo, int position){
+        String p_title = photo.getTitle().replaceAll("\"","&quot;");
+        String p_url= photo.getThumbnailUrl();
+        // print basic description - html tags and title
+        out.println("<div id=\"item\" data-target=\"#description-shown\" data-content=\"" +
+        		 "<p>Title: "+p_title);
+        // if ranked photo, print original position
+        if(position!=0)
+        	out.println("<br>Original position: "+position);
+        // if geodata is included, print them
+        if(geoChecked!=null)
+        	out.println("<br>Geo lat: " + photo.getGeoData().getLatitude() + "<br>Geo lon: " + photo.getGeoData().getLongitude());
+        // end description
+        out.println("</p>\">");
+        // print image
+        out.println("<div id=\"image\"><img src=\""+p_url+"\" alt=\""+p_title+"\"/></div>");
+        out.println("</div>");
+    }
+    
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException, FlickrException {
         response.setContentType("text/html;charset=UTF-8");
-        try (PrintWriter out = response.getWriter()) {
-            /* TODO output your page here. You may use following sample code. */
-             
+        try (PrintWriter out = response.getWriter()) {             
        
-        String name = request.getParameter("query");
-        String searchtype = request.getParameter("searchtype");
-        String geoChecked=request.getParameter("gpscheck");
-        System.out.println("The geo is " + geoChecked);
-        double geoLatitude=0, geoLongitude=0;
+        name = request.getParameter("query");
+        searchtype = request.getParameter("searchtype");
+        geoChecked=request.getParameter("gpscheck");
         if(geoChecked!=null){
-         geoLatitude=Double.parseDouble(request.getParameter("latitude"));
-         geoLongitude=Double.parseDouble(request.getParameter("longitude"));
+        	geoLatitude=Double.parseDouble(request.getParameter("latitude"));
+         	geoLongitude=Double.parseDouble(request.getParameter("longitude"));
+         	String prioString=request.getParameter("GPSprio");
+         	geoPrio=Double.parseDouble(prioString) / 100;
         }
-         System.out.println("The input lat: "+ geoLatitude + " lon: " + geoLongitude);   
-        printHeader(out,name);
+        if(searchtype.equals("tag"))
+        {
+            tags = name.split(" ");
+            for (int i = 0; i < tags.length; i++) {
+                   tags[i]=tags[i].trim();
+                }
+        }
+        	 
+        printHeader(out);
 
         String apiKey = "859ff620dda11a192d7ff17513b4dfac";
         String sharedSecret = "a90d392d889f0b69";
@@ -100,22 +163,16 @@ public class PhotoSearchServlet extends HttpServlet {
         //do simple page reranking
         if (name == null) {
             name = "No name";
-        }
-
-        if(searchtype == "fulltext")
+        }       
+        
+        if(searchtype.equals("fulltext"))
         {
         	params.setText(name);
         } else
         {
-            String[] tags;
-            tags = name.split(" ");
-            
-            for (int i = 0; i < tags.length; i++) {
-               tags[i]=tags[i].trim();
         	params.setTags(tags);
-        	params.setTagMode("all");
-            }
-        } 
+        	params.setTagMode("all");        	
+        }
         params.setHasGeo(true);
         List<RankedPhoto> rankedList=new ArrayList<>();
        
@@ -127,17 +184,17 @@ public class PhotoSearchServlet extends HttpServlet {
             System.out.println(e);
         }
         if((photos!=null) && !photos.isEmpty()){
-           out.println("<div>");
             int pages = photos.getPages();
     
                 
         GCDAlgorithm distance=new GCDAlgorithm();
-            
-            out.println("<div id=\"norank\" >");
+        out.println("<div id=\"content\" >");
+        out.println("<div id=\"norank\" >");
+        int current_place=0;
         for (Photo photo : photos) {
               double rank=0;
+            current_place += 1;
             if(geoChecked!=null){
-                
                 GeoData geoData=null;
                if (flickr.getGeoInterface().getLocation(photo.getId()) != null) {
                  geoData = flickr.getGeoInterface().getLocation(photo.getId());
@@ -146,28 +203,21 @@ public class PhotoSearchServlet extends HttpServlet {
            double gcd= distance.countGCD(geoData, geoLatitude, geoLongitude);
             rank+=gcd;
             }
-           String p_url= photo.getThumbnailUrl();
-            rankedList.add(new RankedPhoto(photo,rank));
-         
-           out.println("<img src=\""+p_url+"\" alt=\""+photo.getTitle()+"\"/>");
-           
+           rankedList.add(new RankedPhoto(photo,rank,current_place));
+           printResult(out,photo,0);
         }
         out.println("</div>");
         Collections.sort(rankedList,RankedPhoto.getCompByRank());
         out.println("<div id=\"rank\">");
         for(RankedPhoto p: rankedList){
-            System.out.println("The rank is: " + p.rank);
-            System.out.println("The lat: " + p.p.getGeoData().getLatitude() + " lon: " + p.p.getGeoData().getLongitude());
-            String p_url= p.p.getThumbnailUrl();
-            out.println("<img src=\""+p_url+"\" alt=\""+p.p.getTitle()+"\"/>");
-            
+        	printResult(out,p.p,p.orig_position);
         }
         out.println("</div>");
         }else{
 
     out.println (
 
-    "No photos wiith tags " + name + " found!");
+    "No photos with tags " + name + " found!");
         }
         
         
@@ -216,8 +266,8 @@ public class PhotoSearchServlet extends HttpServlet {
 
     "No photos wiith tags " + name + " found!");
         }*/
+    out.println("</div>");
     out.println (
-            
     "</body>");
     out.println (
 
