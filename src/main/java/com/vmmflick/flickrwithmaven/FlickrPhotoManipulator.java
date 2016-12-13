@@ -80,13 +80,7 @@ public class FlickrPhotoManipulator {
     }
 
     public int getFavourites(Photo p) throws FlickrException {
-        Calendar today = Calendar.getInstance();
-        today.clear(Calendar.HOUR);
-        today.clear(Calendar.MINUTE);
-        today.clear(Calendar.SECOND);
-        Date todayDate = today.getTime();
-       // Stats stat = flickr.getStatsInterface().getPhotoStats(p.getId(),todayDate);        
-      //  p.setStats(stat);
+        
       PhotosInterface photosInteface = flickr.getPhotosInterface();
          Collection<User> users= photosInteface.getFavorites(p.getId(), Integer.MAX_VALUE, 1);
         
