@@ -121,6 +121,6 @@ public class PhotoInformationGetter implements Runnable {
 
         }
         
-        fin.countDown();
+       
     }
 }

@@ -103,7 +103,8 @@ public class PhotoSearchServlet extends HttpServlet {
             if ((photos != null) && !photos.isEmpty()) {
                 out.println("<div>");
                 int total = photos.size();
-                System.out.println("There are " +total +" photos.");
+                System.out.println("There are " + total + " photos.");
+                Thread[] executors = new Thread[thnum];
                 int oneLoad = total / thnum;
                 int beginPosition = 0;
                 CountDownLatch latch = new CountDownLatch(thnum);
@@ -114,15 +115,17 @@ public class PhotoSearchServlet extends HttpServlet {
                         toadd = total - beginPosition;
                     }
 
-                    workers[i] = new PhotoInformationGetter(beginPosition, toadd, photos, this, refVals,latch);
+                    workers[i] = new PhotoInformationGetter(beginPosition, toadd, photos, this, refVals, latch);
                     beginPosition += toadd;
                 }
                 System.out.println("The threads are started");
-                 for(int i=0;i<thnum;i++){
-                    workers[i].run();
+
+                for (int i = 0; i < thnum; i++) {
+                    executors[i] = new Thread(workers[i]);
+                    executors[i].start();
                 }
                 out.println("<div class=\"norank\">");
-                 for (Photo photo : photos) {
+                for (Photo photo : photos) {
                     String p_url = photo.getThumbnailUrl();
 
                     out.println("<img src=\"" + p_url + "\" alt=\"" + photo.getTitle() + "\"/>");
@@ -130,15 +133,18 @@ public class PhotoSearchServlet extends HttpServlet {
                 }
                 out.println("</div>");
                 System.out.println("Waiting for workers to finnish");
-               latch.await();
-                 System.out.println("Workers finnished");
+                for (int i = 0; i < thnum; i++) {
+                    
+                    executors[i].join();
+                }
+                System.out.println("Workers finnished");
 
                 for (RankedPhoto rphoto : rankedList) {
                     rphoto.countRank(geoDegree, dateDegree, likesDegree, MaxValues.MAX_GCD, MaxValues.MAX_FAVS, MaxValues.MAX_DATE);
                     rphoto.printRank();
                 }
                 System.out.println("--------------ranked--------------");
-                
+
                 Collections.sort(rankedList, RankedPhoto.getCompByRank());
                 out.println("<div class=\"rank\">");
                 for (RankedPhoto p : rankedList) {
