@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.servlet.ServletException;
@@ -31,12 +32,13 @@ import javax.servlet.http.HttpServletResponse;
  */
 public class PhotoSearchServlet extends HttpServlet {
 
-    private String geoChecked = null;
-    private String dateCheck = null;
-    private String likesCheck = null;
+    String geoChecked = null;
+    String dateCheck = null;
+    String likesCheck = null;
     private double geoDegree = 0;
     private double dateDegree = 0;
     private double likesDegree = 0;
+    List<RankedPhoto> rankedList = null;
 
     private void extractParametersFromRequest(HttpServletRequest request) {
         geoChecked = request.getParameter("gpscheck");
@@ -45,11 +47,12 @@ public class PhotoSearchServlet extends HttpServlet {
         geoDegree = Double.parseDouble(request.getParameter("GPSprio")) / 100;
         dateDegree = Double.parseDouble(request.getParameter("Dateprio")) / 100;
         likesDegree = Double.parseDouble(request.getParameter("Likesprio")) / 100;
+        rankedList = new ArrayList<>();
 
     }
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException, FlickrException, ParseException {
+            throws ServletException, IOException, FlickrException, ParseException, InterruptedException {
         response.setContentType("text/html;charset=UTF-8");
         try (PrintWriter out = response.getWriter()) {
             /* TODO output your page here. You may use following sample code. */
@@ -57,30 +60,33 @@ public class PhotoSearchServlet extends HttpServlet {
             String name = request.getParameter("query");
             String searchType = request.getParameter("searchtype");
             this.extractParametersFromRequest(request);
-           
-            double geoLatitude = 0, geoLongitude = 0;
-            int likes = 0;
-            Date refDate = null;
+            int thnum = Integer.parseInt(request.getParameter("threads"));
+            PhotoInformationGetter[] workers = new PhotoInformationGetter[thnum];
+
+            ReferenceValues refVals = new ReferenceValues();
 
             if (geoChecked != null) {
-                geoLatitude = Double.parseDouble(request.getParameter("latitude"));
-                geoLongitude = Double.parseDouble(request.getParameter("longitude"));
+                double geoLatitude = Double.parseDouble(request.getParameter("latitude"));
+                double geoLongitude = Double.parseDouble(request.getParameter("longitude"));
+                refVals.setGeo(geoLatitude, geoLongitude);
             }
 
             if (likesCheck != null) {
-                likes = Integer.parseInt(request.getParameter("likes"));
+                int likes = Integer.parseInt(request.getParameter("likes"));
+                refVals.setFavs(likes);
             }
 
             if (dateCheck != null) {
                 DateFormat format = new SimpleDateFormat("dd.MM.yyyy", Locale.ENGLISH);
                 String date = request.getParameter("date");
-                refDate = format.parse(date);
+                Date refDate = format.parse(date);
+                refVals.setDate(refDate);
             }
 
             if (name == null) {
                 name = "No name";
             }
-            
+
             HelpPrinter print = new HelpPrinter();
             print.printHeader(out, name);
             print.printTitle(out, name);
@@ -94,64 +100,45 @@ public class PhotoSearchServlet extends HttpServlet {
                 photos = finder.findPhotosByTag(name);
             }
 
-            List<RankedPhoto> rankedList = new ArrayList<>();
-
             if ((photos != null) && !photos.isEmpty()) {
                 out.println("<div>");
-                int pages = photos.getPages();
+                int total = photos.size();
+                System.out.println("There are " +total +" photos.");
+                int oneLoad = total / thnum;
+                int beginPosition = 0;
+                CountDownLatch latch = new CountDownLatch(thnum);
+                for (int i = 0; i < thnum; i++) {
 
-                GCDAlgorithm distance = new GCDAlgorithm();
+                    int toadd = oneLoad;
+                    if (i == (thnum - 1)) {
+                        toadd = total - beginPosition;
+                    }
+
+                    workers[i] = new PhotoInformationGetter(beginPosition, toadd, photos, this, refVals,latch);
+                    beginPosition += toadd;
+                }
+                System.out.println("The threads are started");
+                 for(int i=0;i<thnum;i++){
+                    workers[i].run();
+                }
                 out.println("<div class=\"norank\">");
-                double maxGcd = 1;
-                int maxlikesdiff = 1;
-                long maxdaysDiff = 1;
-                for (Photo photo : photos) {
-
-                    RankedPhoto rphoto = new RankedPhoto(photo);
-                    rankedList.add(rphoto);
-                    
-                    if (geoChecked != null) {
-                        finder.getGeodata(photo);
-
-                        double gcd = distance.countGCD(photo.getGeoData(), geoLatitude, geoLongitude);
-                        if (gcd > maxGcd) {
-                            maxGcd = gcd;
-                        }
-                        rphoto.setGcd(gcd);
-
-                    }
-                    if (likesCheck != null) {
-                        
-                        int favs=finder.getFavourites(photo);
-                        int likesDiff = Math.abs(likes - favs);
-                        if (likesDiff > maxlikesdiff) {
-                            maxlikesdiff = likesDiff;
-                        }
-                        rphoto.setFavouritesDiff(likesDiff);
-
-                    }
-
-                    if (dateCheck != null) {
-                        finder.getPhotoInfo(photo);
-                        long dateDiff = Math.abs(refDate.getTime() - photo.getDateTaken().getTime());
-                        if (dateDiff > maxdaysDiff) {
-                            maxdaysDiff = dateDiff;
-                        }
-                        rphoto.setDateDiff(dateDiff);
-                    }
-
+                 for (Photo photo : photos) {
                     String p_url = photo.getThumbnailUrl();
 
                     out.println("<img src=\"" + p_url + "\" alt=\"" + photo.getTitle() + "\"/>");
 
                 }
+                out.println("</div>");
+                System.out.println("Waiting for workers to finnish");
+               latch.await();
+                 System.out.println("Workers finnished");
 
                 for (RankedPhoto rphoto : rankedList) {
-                    rphoto.countRank(geoDegree, dateDegree, likesDegree, maxGcd, maxlikesdiff, maxdaysDiff);
+                    rphoto.countRank(geoDegree, dateDegree, likesDegree, MaxValues.MAX_GCD, MaxValues.MAX_FAVS, MaxValues.MAX_DATE);
                     rphoto.printRank();
                 }
                 System.out.println("--------------ranked--------------");
-                out.println("</div>");
+                
                 Collections.sort(rankedList, RankedPhoto.getCompByRank());
                 out.println("<div class=\"rank\">");
                 for (RankedPhoto p : rankedList) {
@@ -195,6 +182,8 @@ public class PhotoSearchServlet extends HttpServlet {
             Logger.getLogger(PhotoSearchServlet.class.getName()).log(Level.SEVERE, null, ex);
         } catch (ParseException ex) {
             Logger.getLogger(PhotoSearchServlet.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (InterruptedException ex) {
+            Logger.getLogger(PhotoSearchServlet.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -214,6 +203,8 @@ public class PhotoSearchServlet extends HttpServlet {
         } catch (FlickrException ex) {
             Logger.getLogger(PhotoSearchServlet.class.getName()).log(Level.SEVERE, null, ex);
         } catch (ParseException ex) {
+            Logger.getLogger(PhotoSearchServlet.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (InterruptedException ex) {
             Logger.getLogger(PhotoSearchServlet.class.getName()).log(Level.SEVERE, null, ex);
         }
     }

@@ -124,6 +124,12 @@
                         <td> <input type="range" name="Likesprio" id="Likesprioid" value="50" min="0" max="100" oninput="Likesoutputid.value = Likesprioid.value/100">
                             <output name="Likesoutput" id="Likesoutputid">0.5</output> </td>
                     </tr>
+                      <tr>
+                        
+                        <td># threads:</td>
+                        <td colspan="2"><input type="text" name="threads" id="threads"></td>
+                        
+                    </tr>
                 </table>
                 <input type="submit" value="Submit" id="submitButton"/>
             </form>
