@@ -3,6 +3,7 @@
 <head>
 <!-- jcss stylesheet -->
 <link rel="stylesheet" href="index.css">
+<title>Flickr Form</title>
 <!-- javascript for google maps GPS picker -->
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDPqoG2DlFp770EgTOUMxBjeY5lWAXaVaM&sensor=false" type="text/javascript"></script>
 <script type="text/javascript">

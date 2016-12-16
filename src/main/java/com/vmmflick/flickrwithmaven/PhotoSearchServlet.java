@@ -141,7 +141,7 @@ public class PhotoSearchServlet extends HttpServlet {
                 for (RankedPhoto rphoto : rankedList) {
                 	rphoto.countRank(geoDegree, dateDegree, likesDegree, MaxValues.MAX_GCD, MaxValues.MAX_FAVS, MaxValues.MAX_DATE);
                     rphoto.printRank();
-                    print.printResult(out, rphoto.p, 0, rphoto.favourites);
+                    print.printResult(out, rphoto.p, 0, rphoto.rank, rphoto.favourites);
                     rphoto.setPos(orig_position);
                     orig_position++;
                 }
@@ -153,7 +153,7 @@ public class PhotoSearchServlet extends HttpServlet {
                 for (RankedPhoto p : rankedList) {
                     p.printRank();
                     // System.out.println("The lat: " + p.p.getGeoData().getLatitude() + " lon: " + p.p.getGeoData().getLongitude());
-                    print.printResult(out, p.p, p.original_position, p.favourites);
+                    print.printResult(out, p.p, p.original_position, p.rank, p.favourites);
                 }
                 out.println("</div>");
             } else {

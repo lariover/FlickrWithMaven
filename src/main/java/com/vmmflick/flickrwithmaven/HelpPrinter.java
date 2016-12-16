@@ -46,7 +46,7 @@ public class HelpPrinter {
         out.println("<!DOCTYPE html>");
         out.println("<html>");
         out.println("<head>");
-        out.println("<title>Servlet FormHandler</title>");
+        out.println("<title>Flickr Form results</title>");
         out.println("<link rel=\"stylesheet\" href=\"index.css\">");
         out.println("<script src=\"http://code.jquery.com/jquery-latest.min.js\"></script>");
         out.println("<script type=\"text/javascript\"  src=\"switch_results.js\"></script>");        
@@ -130,7 +130,7 @@ public class HelpPrinter {
         out.println("</p>");
     }
     
-    protected void printResult(PrintWriter out, Photo photo, int position, int favourites){
+    protected void printResult(PrintWriter out, Photo photo, int position, double rank, int favourites){
         String p_title = photo.getTitle().replaceAll("\"","&quot;");
         String p_url= photo.getThumbnailUrl();
         // print basic description - html tags and title
@@ -139,6 +139,9 @@ public class HelpPrinter {
         // if ranked photo, print original position
         if(position!=0)
         	out.println("<br>Original position: "+position);
+        // if rank was counted, print it
+        if(rank!=0)
+        	out.println("<br>Rank: "+rank);
         // if geodata is included, print them
         if(geoChecked!=null)
         	out.println("<br>Geo lat: " + photo.getGeoData().getLatitude() + "<br>Geo lon: " + photo.getGeoData().getLongitude());

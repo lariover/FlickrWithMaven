@@ -17,7 +17,7 @@ public class RankedPhoto {
     Photo p;
     int original_position;
     int favourites=-1;
-    private double rank;
+    double rank;
     private double gcd;
     private long dateDifference;
     private double favouritesDifference;
