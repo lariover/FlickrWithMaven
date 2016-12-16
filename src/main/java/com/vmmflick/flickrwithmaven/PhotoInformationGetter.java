@@ -82,6 +82,7 @@ public class PhotoInformationGetter implements Runnable {
                     int favs = 0;
                     try {
                         favs = finder.getFavourites(photo);
+                        rphoto.setFavourites(favs);
                     } catch (FlickrException ex) {
                         Logger.getLogger(PhotoInformationGetter.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -120,7 +121,6 @@ public class PhotoInformationGetter implements Runnable {
             }
 
         }
-        
        
     }
 }

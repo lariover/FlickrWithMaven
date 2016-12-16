@@ -15,6 +15,8 @@ import java.util.Comparator;
 public class RankedPhoto {
 
     Photo p;
+    int original_position;
+    int favourites=-1;
     private double rank;
     private double gcd;
     private long dateDifference;
@@ -41,7 +43,16 @@ public class RankedPhoto {
     public void setFavouritesDiff(double favDiff){
         this.favouritesDifference=favDiff;
     }
-       public double getGcd() {
+    
+    public void setPos(int pos){
+        this.original_position=pos;
+    }
+    
+    public void setFavourites(int favs){
+        this.favourites=favs;
+    }   
+    
+    public double getGcd() {
         return this.gcd;
     }
    

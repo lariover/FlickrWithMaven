@@ -32,12 +32,19 @@ import javax.servlet.http.HttpServletResponse;
  */
 public class PhotoSearchServlet extends HttpServlet {
 
-    String geoChecked = null;
-    String dateCheck = null;
-    String likesCheck = null;
-    private double geoDegree = 0;
-    private double dateDegree = 0;
-    private double likesDegree = 0;
+    protected String geoChecked = null;
+    protected String dateCheck = null;
+    protected String likesCheck = null;
+    protected double geoDegree = 0;
+    protected double dateDegree = 0;
+    protected double likesDegree = 0;
+    
+    protected String name = null;
+    protected String searchType = null;
+    protected double geoLatitude = 0, geoLongitude = 0;
+    protected int likes = 0;
+    protected String date = null;
+    
     List<RankedPhoto> rankedList = null;
 
     private void extractParametersFromRequest(HttpServletRequest request) {
@@ -48,37 +55,37 @@ public class PhotoSearchServlet extends HttpServlet {
         dateDegree = Double.parseDouble(request.getParameter("Dateprio")) / 100;
         likesDegree = Double.parseDouble(request.getParameter("Likesprio")) / 100;
         rankedList = new ArrayList<>();
-
     }
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException, FlickrException, ParseException, InterruptedException {
+    		throws ServletException, IOException, FlickrException, ParseException, InterruptedException {
         response.setContentType("text/html;charset=UTF-8");
         try (PrintWriter out = response.getWriter()) {
             /* TODO output your page here. You may use following sample code. */
 
-            String name = request.getParameter("query");
-            String searchType = request.getParameter("searchtype");
+            name = request.getParameter("query");
+            searchType = request.getParameter("searchtype");
             this.extractParametersFromRequest(request);
+            
             int thnum = Integer.parseInt(request.getParameter("threads"));
             PhotoInformationGetter[] workers = new PhotoInformationGetter[thnum];
 
             ReferenceValues refVals = new ReferenceValues();
 
             if (geoChecked != null) {
-                double geoLatitude = Double.parseDouble(request.getParameter("latitude"));
-                double geoLongitude = Double.parseDouble(request.getParameter("longitude"));
+                geoLatitude = Double.parseDouble(request.getParameter("latitude"));
+                geoLongitude = Double.parseDouble(request.getParameter("longitude"));
                 refVals.setGeo(geoLatitude, geoLongitude);
             }
 
             if (likesCheck != null) {
-                int likes = Integer.parseInt(request.getParameter("likes"));
+                likes = Integer.parseInt(request.getParameter("likes"));
                 refVals.setFavs(likes);
             }
 
             if (dateCheck != null) {
                 DateFormat format = new SimpleDateFormat("dd.MM.yyyy", Locale.ENGLISH);
-                String date = request.getParameter("date");
+                date = request.getParameter("date");
                 Date refDate = format.parse(date);
                 refVals.setDate(refDate);
             }
@@ -86,10 +93,9 @@ public class PhotoSearchServlet extends HttpServlet {
             if (name == null) {
                 name = "No name";
             }
-
-            HelpPrinter print = new HelpPrinter();
-            print.printHeader(out, name);
-            print.printTitle(out, name);
+            
+            HelpPrinter print = new HelpPrinter(this);
+            print.printHeader(out);
 
             //do simple page reranking
             FlickrPhotoManipulator finder = new FlickrPhotoManipulator();
@@ -101,7 +107,7 @@ public class PhotoSearchServlet extends HttpServlet {
             }
 
             if ((photos != null) && !photos.isEmpty()) {
-                out.println("<div>");
+                out.println("<div id=\"content\">");
                 int total = photos.size();
                 System.out.println("There are " + total + " photos.");
                 Thread[] executors = new Thread[thnum];
@@ -119,41 +125,35 @@ public class PhotoSearchServlet extends HttpServlet {
                     beginPosition += toadd;
                 }
                 System.out.println("The threads are started");
-
                 for (int i = 0; i < thnum; i++) {
                     executors[i] = new Thread(workers[i]);
                     executors[i].start();
                 }
-                out.println("<div class=\"norank\">");
-                for (Photo photo : photos) {
-                    String p_url = photo.getThumbnailUrl();
-
-                    out.println("<img src=\"" + p_url + "\" alt=\"" + photo.getTitle() + "\"/>");
-
-                }
-                out.println("</div>");
-                System.out.println("Waiting for workers to finnish");
-                for (int i = 0; i < thnum; i++) {
-                    
+                
+                for (int i = 0; i < thnum; i++) {                    
                     executors[i].join();
                 }
-                System.out.println("Workers finnished");
+                System.out.println("Workers finished");
 
+                // print results before sort
+                out.println("<div id=\"norank\">");  
+                int orig_position=1;
                 for (RankedPhoto rphoto : rankedList) {
-                    rphoto.countRank(geoDegree, dateDegree, likesDegree, MaxValues.MAX_GCD, MaxValues.MAX_FAVS, MaxValues.MAX_DATE);
+                	rphoto.countRank(geoDegree, dateDegree, likesDegree, MaxValues.MAX_GCD, MaxValues.MAX_FAVS, MaxValues.MAX_DATE);
                     rphoto.printRank();
+                    print.printResult(out, rphoto.p, 0, rphoto.favourites);
+                    rphoto.setPos(orig_position);
+                    orig_position++;
                 }
+                out.println("</div>");      
                 System.out.println("--------------ranked--------------");
 
                 Collections.sort(rankedList, RankedPhoto.getCompByRank());
-                out.println("<div class=\"rank\">");
+                out.println("<div id=\"rank\">");
                 for (RankedPhoto p : rankedList) {
                     p.printRank();
                     // System.out.println("The lat: " + p.p.getGeoData().getLatitude() + " lon: " + p.p.getGeoData().getLongitude());
-                    String p_url = p.p.getThumbnailUrl();
-
-                    out.println("<img src=\"" + p_url + "\" alt=\"" + p.p.getTitle() + "\"/>");
-
+                    print.printResult(out, p.p, p.original_position, p.favourites);
                 }
                 out.println("</div>");
             } else {
