@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package com.vmmflick.flickrwithmaven;
 
 import com.flickr4java.flickr.FlickrException;
@@ -19,6 +14,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.servlet.ServletException;
@@ -32,13 +29,23 @@ import javax.servlet.http.HttpServletResponse;
  */
 public class PhotoSearchServlet extends HttpServlet {
 
-    String geoChecked = null;
-    String dateCheck = null;
-    String likesCheck = null;
-    private double geoDegree = 0;
-    private double dateDegree = 0;
-    private double likesDegree = 0;
-    List<RankedPhoto> rankedList = null;
+    protected String geoChecked = null;
+    protected String dateCheck = null;
+    protected String likesCheck = null;
+    protected double geoDegree = 0;
+    protected double dateDegree = 0;
+    protected double likesDegree = 0;
+
+    protected String name = null;
+    protected String searchType = null;
+    protected double geoLatitude = 0, geoLongitude = 0;
+    protected int likes = 0;
+    protected String date = null;
+
+    private void getGeoParametrs(HttpServletRequest request) {
+        geoLatitude = Double.parseDouble(request.getParameter("latitude"));
+        geoLongitude = Double.parseDouble(request.getParameter("longitude"));
+    }
 
     private void extractParametersFromRequest(HttpServletRequest request) {
         geoChecked = request.getParameter("gpscheck");
@@ -47,7 +54,8 @@ public class PhotoSearchServlet extends HttpServlet {
         geoDegree = Double.parseDouble(request.getParameter("GPSprio")) / 100;
         dateDegree = Double.parseDouble(request.getParameter("Dateprio")) / 100;
         likesDegree = Double.parseDouble(request.getParameter("Likesprio")) / 100;
-        rankedList = new ArrayList<>();
+        name = request.getParameter("query");
+        searchType = request.getParameter("searchtype");
 
     }
 
@@ -55,30 +63,33 @@ public class PhotoSearchServlet extends HttpServlet {
             throws ServletException, IOException, FlickrException, ParseException, InterruptedException {
         response.setContentType("text/html;charset=UTF-8");
         try (PrintWriter out = response.getWriter()) {
+            List<RankedPhoto> rankedList = null;
             /* TODO output your page here. You may use following sample code. */
 
-            String name = request.getParameter("query");
-            String searchType = request.getParameter("searchtype");
             this.extractParametersFromRequest(request);
-            int thnum = Integer.parseInt(request.getParameter("threads"));
-            PhotoInformationGetter[] workers = new PhotoInformationGetter[thnum];
 
+            String tnum = request.getParameter("threads");
+            int thnum = 1;
+            if ((tnum != null) && !(tnum.equals(""))) {
+                thnum = Integer.parseInt(request.getParameter("threads"));
+            }
+
+            PhotoInformationGetter[] workers = new PhotoInformationGetter[thnum];
             ReferenceValues refVals = new ReferenceValues();
 
             if (geoChecked != null) {
-                double geoLatitude = Double.parseDouble(request.getParameter("latitude"));
-                double geoLongitude = Double.parseDouble(request.getParameter("longitude"));
+                this.getGeoParametrs(request);
                 refVals.setGeo(geoLatitude, geoLongitude);
             }
 
             if (likesCheck != null) {
-                int likes = Integer.parseInt(request.getParameter("likes"));
+                likes = Integer.parseInt(request.getParameter("likes"));
                 refVals.setFavs(likes);
             }
 
             if (dateCheck != null) {
                 DateFormat format = new SimpleDateFormat("dd.MM.yyyy", Locale.ENGLISH);
-                String date = request.getParameter("date");
+                date = request.getParameter("date");
                 Date refDate = format.parse(date);
                 refVals.setDate(refDate);
             }
@@ -87,9 +98,8 @@ public class PhotoSearchServlet extends HttpServlet {
                 name = "No name";
             }
 
-            HelpPrinter print = new HelpPrinter();
-            print.printHeader(out, name);
-            print.printTitle(out, name);
+            HelpPrinter print = new HelpPrinter(this);
+            print.printHeader(out);
 
             //do simple page reranking
             FlickrPhotoManipulator finder = new FlickrPhotoManipulator();
@@ -101,13 +111,13 @@ public class PhotoSearchServlet extends HttpServlet {
             }
 
             if ((photos != null) && !photos.isEmpty()) {
-                out.println("<div>");
+                out.println("<div id=\"content\">");
                 int total = photos.size();
-                System.out.println("There are " + total + " photos.");
+                System.out.println(Thread.currentThread().getId() + ": There are " + total + " photos.");
                 Thread[] executors = new Thread[thnum];
                 int oneLoad = total / thnum;
                 int beginPosition = 0;
-                CountDownLatch latch = new CountDownLatch(thnum);
+                rankedList = new ArrayList<>();
                 for (int i = 0; i < thnum; i++) {
 
                     int toadd = oneLoad;
@@ -115,47 +125,52 @@ public class PhotoSearchServlet extends HttpServlet {
                         toadd = total - beginPosition;
                     }
 
-                    workers[i] = new PhotoInformationGetter(beginPosition, toadd, photos, this, refVals, latch);
+                    workers[i] = new PhotoInformationGetter(beginPosition, toadd, photos, this, refVals, rankedList);
                     beginPosition += toadd;
                 }
-                System.out.println("The threads are started");
+
+                System.out.println(Thread.currentThread().getId() + ": The threads are started" + " Total workers" + workers.length);
+                
+                for (int i = 0; i < thnum; i++) {
+                   
+                        if ((executors[i] == null) || (!executors[i].isAlive())) {
+                            executors[i] = new Thread(workers[i]);
+                            executors[i].start();
+
+                        }
+                   
+                }
 
                 for (int i = 0; i < thnum; i++) {
-                    executors[i] = new Thread(workers[i]);
-                    executors[i].start();
-                }
-                out.println("<div class=\"norank\">");
-                for (Photo photo : photos) {
-                    String p_url = photo.getThumbnailUrl();
-
-                    out.println("<img src=\"" + p_url + "\" alt=\"" + photo.getTitle() + "\"/>");
-
-                }
-                out.println("</div>");
-                System.out.println("Waiting for workers to finnish");
-                for (int i = 0; i < thnum; i++) {
-                    
                     executors[i].join();
+
                 }
-                System.out.println("Workers finnished");
+                System.out.println(Thread.currentThread().getId() + ": Workers finished");
+
+                // print results before sort
+                out.println("<div id=\"norank\">");
+
+                int orig_position = 1;
 
                 for (RankedPhoto rphoto : rankedList) {
                     rphoto.countRank(geoDegree, dateDegree, likesDegree, MaxValues.MAX_GCD, MaxValues.MAX_FAVS, MaxValues.MAX_DATE);
                     rphoto.printRank();
+                    print.printResult(out, rphoto.p, 0, rphoto.rank, rphoto.favourites);
+                    rphoto.setPos(orig_position);
+                    orig_position++;
                 }
+                out.println("</div>");
                 System.out.println("--------------ranked--------------");
 
                 Collections.sort(rankedList, RankedPhoto.getCompByRank());
-                out.println("<div class=\"rank\">");
+                out.println("<div id=\"rank\">");
                 for (RankedPhoto p : rankedList) {
                     p.printRank();
                     // System.out.println("The lat: " + p.p.getGeoData().getLatitude() + " lon: " + p.p.getGeoData().getLongitude());
-                    String p_url = p.p.getThumbnailUrl();
-
-                    out.println("<img src=\"" + p_url + "\" alt=\"" + p.p.getTitle() + "\"/>");
-
+                    print.printResult(out, p.p, p.original_position, p.rank, p.favourites);
                 }
                 out.println("</div>");
+
             } else {
 
                 out.println(
@@ -169,8 +184,8 @@ public class PhotoSearchServlet extends HttpServlet {
 
         }
     }
-
     // <editor-fold defaultstate="collapsed" desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
+
     /**
      * Handles the HTTP <code>GET</code> method.
      *
@@ -182,6 +197,7 @@ public class PhotoSearchServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+
         try {
             processRequest(request, response);
         } catch (FlickrException ex) {
@@ -191,6 +207,7 @@ public class PhotoSearchServlet extends HttpServlet {
         } catch (InterruptedException ex) {
             Logger.getLogger(PhotoSearchServlet.class.getName()).log(Level.SEVERE, null, ex);
         }
+
     }
 
     /**
@@ -204,6 +221,7 @@ public class PhotoSearchServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+
         try {
             processRequest(request, response);
         } catch (FlickrException ex) {
@@ -213,6 +231,7 @@ public class PhotoSearchServlet extends HttpServlet {
         } catch (InterruptedException ex) {
             Logger.getLogger(PhotoSearchServlet.class.getName()).log(Level.SEVERE, null, ex);
         }
+
     }
 
     /**
