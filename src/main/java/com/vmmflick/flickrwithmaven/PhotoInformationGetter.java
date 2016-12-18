@@ -9,8 +9,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * The class covers the processing of photos by threads
+ * The class represents the activity of thread
+ * It processes the subset of retrieved photos
+ * The subsets are distributed in servlet
+ * 
  */
+
 public class PhotoInformationGetter implements Runnable {
 
     private int from = 0;
@@ -30,7 +34,6 @@ public class PhotoInformationGetter implements Runnable {
         this.refVals = refVals;
         this.rankedList=rankedList;
 
-        System.out.println("Thread created ");
     }
 
     @Override
@@ -42,15 +45,15 @@ public class PhotoInformationGetter implements Runnable {
         ReentrantLock lock1 = new ReentrantLock();
         ReentrantLock lock2 = new ReentrantLock();
         ReentrantLock lock3 = new ReentrantLock();
-        System.out.println(" Started executoun from " + from + " to " + (from + amount));
+       
 
         for (Photo photo : photosBatch) {
             RankedPhoto rphoto = new RankedPhoto(photo);
 
-            synchronized (rankedList) {
+          
                rankedList.add(rphoto);
-            }
-            // System.out.println(" Created new rphoto");
+         
+         
             if (servlet.geoChecked != null) {
                 try {
                     finder.getGeodata(photo);
@@ -72,7 +75,7 @@ public class PhotoInformationGetter implements Runnable {
                 } finally {
                     lock1.unlock();
                 }
-                //  System.out.println(" val geo updated");
+             
             }
             if (servlet.likesCheck != null) {
 
@@ -84,7 +87,7 @@ public class PhotoInformationGetter implements Runnable {
                     Logger.getLogger(PhotoInformationGetter.class.getName()).log(Level.SEVERE, null, ex);
                 }
                 int likesDiff = Math.abs(refVals.refLikes - favs);
-                //  System.out.println(" like done");
+                
                 lock2.lock();
                 try {
                     if (likesDiff > MaxValues.MAX_FAVS) {
@@ -95,7 +98,7 @@ public class PhotoInformationGetter implements Runnable {
                 } finally {
                     lock2.unlock();
                 }
-                //      System.out.println(" like updated");
+               
             }
 
             if (servlet.dateCheck != null) {

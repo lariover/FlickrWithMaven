@@ -1,8 +1,4 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
+
 package com.vmmflick.flickrwithmaven;
 
 import com.flickr4java.flickr.Flickr;
@@ -14,14 +10,13 @@ import com.flickr4java.flickr.photos.Photo;
 import com.flickr4java.flickr.photos.PhotoList;
 import com.flickr4java.flickr.photos.PhotosInterface;
 import com.flickr4java.flickr.photos.SearchParameters;
-import com.flickr4java.flickr.stats.Stats;
-import java.util.Calendar;
 import java.util.Collection;
-import java.util.Date;
+
 
 /**
- *
- * @author Veronika
+ * The class is used as communicator with Flick
+ * It purpose is to access Flick and get photos and their information
+ * 
  */
 public class FlickrPhotoManipulator {
 
@@ -33,6 +28,11 @@ public class FlickrPhotoManipulator {
         flickr = new Flickr(apiKey, sharedSecret, new REST());
     }
 
+    /**
+     * The method retrieves photos which has the expression from query somewhere in the text that describes them
+     * @param query the text to search by
+     * @return list of photos which are assigned wit query
+     */
     public PhotoList<Photo> findPhotosByText(String query) {
         PhotosInterface photosInteface = flickr.getPhotosInterface();
         SearchParameters params = new SearchParameters();
@@ -50,6 +50,12 @@ public class FlickrPhotoManipulator {
 
     }
 
+    /**
+     * The methods parses the expression into words and uses each word as tag
+     * all tags have to be valid, for photo to be returned (photo has to contain all of them)
+     * @param query the expression to search by
+     * @return list of photos which are associated with the tags from expression
+     */
     public PhotoList<Photo> findPhotosByTag(String query) {
         PhotosInterface photosInteface = flickr.getPhotosInterface();
         SearchParameters params = new SearchParameters();
@@ -73,6 +79,13 @@ public class FlickrPhotoManipulator {
 
     }
 
+    
+    
+    /**
+     * The method asks Flick for geodata for specific photo
+     * @param p photo, for which we ask for geodata
+     * @throws FlickrException 
+     */
     public void getGeodata(Photo p) throws FlickrException {
         GeoData geoData = flickr.getGeoInterface().getLocation(p.getId());
         p.setGeoData(geoData);

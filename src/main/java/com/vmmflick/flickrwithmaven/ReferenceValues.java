@@ -9,7 +9,7 @@ import java.util.Date;
 
 /**
  *
- * @author Veronika
+ *class serves as container for reference values - values from submitted form
  */
 public class ReferenceValues {
     double lat=0;

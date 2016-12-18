@@ -4,7 +4,10 @@ package com.vmmflick.flickrwithmaven;
 import com.flickr4java.flickr.photos.Photo;
 import java.util.Comparator;
 
-
+/**
+ * The class represents the container for photo and its information about reranking
+ * 
+ */
 public class RankedPhoto {
 
     Photo p;
@@ -60,15 +63,25 @@ public class RankedPhoto {
         return rank;
     }
     
+    /**
+     * 
+     * @param geoD the degree/relevance of geo information
+     * @param dateD the degree/relevance of date difference
+     * @param favD the degree/relevance of popularity difference
+     * @param maxgcd the maximum value of difference for geo information
+     * @param maxlikes the maximum value of difference for popularity difference
+     * @param maxdate the maximum value of difference for date difference
+     */
     public void countRank(double geoD,double dateD, double favD,double maxgcd,int maxlikes, long maxdate ){
         rank=(this.gcd*geoD/maxgcd) + (this.dateDifference*dateD/maxdate)+ (this.favouritesDifference*favD/maxlikes);
     }
+    
     public void printRank(){
         System.out.println("Photo with id "  + p.getId() + " rank is "+ rank);
     }
 
     /**
-     *
+     * compares two instances for sorting from smallest to highest rank
      * @return
      */
     public static Comparator<RankedPhoto> getCompByRank() {

@@ -61,20 +61,18 @@ public class PhotoSearchServlet extends HttpServlet {
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException, FlickrException, ParseException, InterruptedException {
+
         response.setContentType("text/html;charset=UTF-8");
+
         try (PrintWriter out = response.getWriter()) {
-            List<RankedPhoto> rankedList = null;
-            /* TODO output your page here. You may use following sample code. */
 
             this.extractParametersFromRequest(request);
-
             String tnum = request.getParameter("threads");
             int thnum = 1;
             if ((tnum != null) && !(tnum.equals(""))) {
                 thnum = Integer.parseInt(request.getParameter("threads"));
             }
 
-            PhotoInformationGetter[] workers = new PhotoInformationGetter[thnum];
             ReferenceValues refVals = new ReferenceValues();
 
             if (geoChecked != null) {
@@ -112,12 +110,14 @@ public class PhotoSearchServlet extends HttpServlet {
 
             if ((photos != null) && !photos.isEmpty()) {
                 out.println("<div id=\"content\">");
+                List<RankedPhoto> rankedList = new ArrayList<>();;
+                PhotoInformationGetter[] workers = new PhotoInformationGetter[thnum];
+                Thread[] executors = new Thread[thnum];
                 int total = photos.size();
                 System.out.println(Thread.currentThread().getId() + ": There are " + total + " photos.");
-                Thread[] executors = new Thread[thnum];
+
                 int oneLoad = total / thnum;
                 int beginPosition = 0;
-                rankedList = new ArrayList<>();
                 for (int i = 0; i < thnum; i++) {
 
                     int toadd = oneLoad;
@@ -130,15 +130,12 @@ public class PhotoSearchServlet extends HttpServlet {
                 }
 
                 System.out.println(Thread.currentThread().getId() + ": The threads are started" + " Total workers" + workers.length);
-                
-                for (int i = 0; i < thnum; i++) {
-                   
-                        if ((executors[i] == null) || (!executors[i].isAlive())) {
-                            executors[i] = new Thread(workers[i]);
-                            executors[i].start();
 
-                        }
-                   
+                for (int i = 0; i < thnum; i++) {
+
+                    executors[i] = new Thread(workers[i]);
+                    executors[i].start();
+
                 }
 
                 for (int i = 0; i < thnum; i++) {
