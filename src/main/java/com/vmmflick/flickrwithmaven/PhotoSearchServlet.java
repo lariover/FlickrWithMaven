@@ -13,9 +13,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.servlet.ServletException;
@@ -24,8 +21,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /**
- *
- * @author Veronika
+ * The main servlet class, extracts parameters from the input form and calls other methods
+ * also does some of the html outputting
  */
 public class PhotoSearchServlet extends HttpServlet {
 
@@ -42,10 +39,18 @@ public class PhotoSearchServlet extends HttpServlet {
     protected int likes = 0;
     protected String date = null;
 
+	/*
+	* Loads geoParameters from the input
+	*/
+	
     private void getGeoParametrs(HttpServletRequest request) {
         geoLatitude = Double.parseDouble(request.getParameter("latitude"));
         geoLongitude = Double.parseDouble(request.getParameter("longitude"));
     }
+	
+	/*
+	* Loads basic parameters from the input - query, which metadata to use and priorities
+	*/
 
     private void extractParametersFromRequest(HttpServletRequest request) {
         geoChecked = request.getParameter("gpscheck");
@@ -59,6 +64,10 @@ public class PhotoSearchServlet extends HttpServlet {
 
     }
 
+	/*
+	* Main servlet method called by the overridden post and get methods
+	*/
+	
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException, FlickrException, ParseException, InterruptedException {
 
@@ -67,6 +76,10 @@ public class PhotoSearchServlet extends HttpServlet {
         try (PrintWriter out = response.getWriter()) {
 
             this.extractParametersFromRequest(request);
+			
+			/*
+			* Load number of threads (default = 1)
+			*/
             String tnum = request.getParameter("threads");
             int thnum = 1;
             if ((tnum != null) && !(tnum.equals(""))) {
@@ -75,6 +88,10 @@ public class PhotoSearchServlet extends HttpServlet {
 
             ReferenceValues refVals = new ReferenceValues();
 
+			/*
+			* Load required metadata if they were checked in the query form
+			*/
+			
             if (geoChecked != null) {
                 this.getGeoParametrs(request);
                 refVals.setGeo(geoLatitude, geoLongitude);
@@ -97,17 +114,26 @@ public class PhotoSearchServlet extends HttpServlet {
             }
 
             HelpPrinter print = new HelpPrinter(this);
+			/*
+			* Print the header of output html with query information, simple menu and description box
+			*/
             print.printHeader(out);
 
-            //do simple page reranking
             FlickrPhotoManipulator finder = new FlickrPhotoManipulator();
             PhotoList<Photo> photos = null;
+			/*
+			* Search for the basic photos
+			*/
             if (searchType.equals("fulltext")) {
                 photos = finder.findPhotosByText(name);
             } else {
                 photos = finder.findPhotosByTag(name);
             }
 
+			/*
+			* For each found photo requests the required metadata from Flickr API
+			* uses threads to distribute the work evenly
+			*/
             if ((photos != null) && !photos.isEmpty()) {
                 out.println("<div id=\"content\">");
                 List<RankedPhoto> rankedList = new ArrayList<>();;
@@ -144,11 +170,15 @@ public class PhotoSearchServlet extends HttpServlet {
                 }
                 System.out.println(Thread.currentThread().getId() + ": Workers finished");
 
-                // print results before sort
                 out.println("<div id=\"norank\">");
 
                 int orig_position = 1;
 
+				/*
+				* Count the rank of each of the photo in the list, after that, print the photo (the list is not yet sorted)
+				* add original position for each photo, omits it in the current description (it's irrelevant in unsorted list)
+				*/
+				
                 for (RankedPhoto rphoto : rankedList) {
                     rphoto.countRank(geoDegree, dateDegree, likesDegree, MaxValues.MAX_GCD, MaxValues.MAX_FAVS, MaxValues.MAX_DATE);
                     rphoto.printRank();
@@ -159,11 +189,13 @@ public class PhotoSearchServlet extends HttpServlet {
                 out.println("</div>");
                 System.out.println("--------------ranked--------------");
 
+				/*
+				* Sort the list and print the results, this time with original position printed (for comparison with original)
+				*/
                 Collections.sort(rankedList, RankedPhoto.getCompByRank());
                 out.println("<div id=\"rank\">");
                 for (RankedPhoto p : rankedList) {
                     p.printRank();
-                    // System.out.println("The lat: " + p.p.getGeoData().getLatitude() + " lon: " + p.p.getGeoData().getLongitude());
                     print.printResult(out, p.p, p.original_position, p.rank, p.favourites);
                 }
                 out.println("</div>");
@@ -171,9 +203,12 @@ public class PhotoSearchServlet extends HttpServlet {
             } else {
 
                 out.println(
-                        "No photos wiith tags " + name + " found!");
+                        "No photos with tags " + name + " found!");
             }
 
+			/*
+			* Closing tags of the generated html page
+			*/
             out.println(
                     "</body>");
             out.println(
@@ -181,7 +216,6 @@ public class PhotoSearchServlet extends HttpServlet {
 
         }
     }
-    // <editor-fold defaultstate="collapsed" desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
 
     /**
      * Handles the HTTP <code>GET</code> method.
